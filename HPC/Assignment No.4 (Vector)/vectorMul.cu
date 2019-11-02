@@ -1,6 +1,6 @@
 #include<iostream>
 #include<time.h>
-#define SIZE 10000
+#define SIZE 1000
 using namespace std;
 
 __global__ void mul(int *vect , int (*mat)[SIZE][SIZE] , long *res){
