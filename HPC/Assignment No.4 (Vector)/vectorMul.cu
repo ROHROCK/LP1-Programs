@@ -38,35 +38,26 @@ int main(){
     cudaMemcpy(d_in_vector,vect,SIZE*sizeof(int),cudaMemcpyHostToDevice);
     cudaMemcpy(d_in_mat,mat,SIZE*SIZE*sizeof(int),cudaMemcpyHostToDevice);
 
-    // Start record for gpu_start
-    cudaEventCreate(&gpu_start);
-    cudaEventCreate(&gpu_stop);
-    cudaEventRecord(gpu_start,0);
-
     // invoke the kernel function
     int blk = SIZE/1024;
+
+    clock_t startTime = clock();
     mul<<<blk+1,1024>>>(d_in_vector,d_in_mat,d_out_result);
+    clock_t endTime = clock();
+    printf("\n\nTime for GPU: %f",(float)(endTime-startTime)/CLOCKS_PER_SEC);
+
     // cpy the result back 
     cudaMemcpy(result,d_out_result,SIZE*sizeof(long),cudaMemcpyDeviceToHost);
-    
-    cudaEventRecord(gpu_stop,0);
-    cudaEventSynchronize(gpu_stop);
-    cudaEventElapsedTime(&gpu_elapsed_time,gpu_start,gpu_stop);
-    cudaEventDestroy(gpu_start);
-    cudaEventDestroy(gpu_stop);
-
-    cout<<"The time taken by GPU is :"<<gpu_elapsed_time<<endl;
-    
-    
+       
     // sequential code
-    clock_t startTime = clock();
+    startTime = clock();
     for(int i = 0 ; i < SIZE ; i++){
         result[i] = 0;
         for(int j = 0 ; j < SIZE ; j++)
             result[i] += vect[j]*mat[j][i];  
     }
-    clock_t endTime = clock();
-    printf("\n\nTime for sequential: %.3f",(float)(endTime-startTime)/CLOCKS_PER_SEC);
+    endTime = clock();
+    printf("\n\nTime for sequential: %f",(float)(endTime-startTime)/CLOCKS_PER_SEC);
     // print result
     // for(int i = 0 ; i < SIZE ; i++){
     //     cout<<result[i]<<" ";
