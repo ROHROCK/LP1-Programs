@@ -1,13 +1,13 @@
 #include<stdio.h>
 #include<time.h>
-
-#define SIZE 100
+#define SIZE 10000
+// MAX_THREADS depends on type of GPU
+#define MAX_THREADS 1024
 
 __global__ void sum(const int* __restrict__ input, const int size, int* sumOut)
 {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
     atomicAdd(sumOut, input[i]);
-    __syncthreads();
 }
 
 int main()
@@ -16,8 +16,6 @@ int main()
   int a[SIZE];
   int c = 0;
   int *dev_a, *dev_c;
-  float gpu_elapsed_time,avg;
-  cudaEvent_t gpu_start,gpu_stop;
     
   cudaMalloc((void **) &dev_a, SIZE*sizeof(int));
   cudaMalloc((void **) &dev_c, sizeof(int));
@@ -35,20 +33,21 @@ int main()
   }
   cudaMemcpy(dev_c , &c, sizeof(int),cudaMemcpyHostToDevice);
   cudaMemcpy(dev_a , a, SIZE*sizeof(int),cudaMemcpyHostToDevice);
-  cudaEventCreate(&gpu_start);
-  cudaEventCreate(&gpu_stop);
-  cudaEventRecord(gpu_start,0);
-  sum<<<2,SIZE/2>>>(dev_a,SIZE,dev_c);
-  cudaDeviceSynchronize();
+   // adjusting the number of threads per block
+   dim3 threadsPerBlock(SIZE);
+   dim3 blocksPerGrid(1, 1);
+   if(SIZE > 1024){
+           threadsPerBlock.x = 1024;
+           blocksPerGrid.x = ceil(double(SIZE)/double(threadsPerBlock.x));
+   }
+  clock_t start = clock();
+  sum<<<blocksPerGrid,threadsPerBlock>>>(dev_a,SIZE,dev_c);
   cudaMemcpy(&c, dev_c, sizeof(int),cudaMemcpyDeviceToHost);
   c = c / SIZE;
-  cudaEventRecord(gpu_stop, 0);
-  cudaEventSynchronize(gpu_stop);
-  cudaEventElapsedTime(&gpu_elapsed_time, gpu_start, gpu_stop);
-  cudaEventDestroy(gpu_start);
-  cudaEventDestroy(gpu_stop);
+  clock_t end = clock();
+  
   printf("avg =  %d ",c);
-  printf("\nThe gpu took: %f milli-seconds.\n",gpu_elapsed_time);
+  printf("\nThe gpu took: %f milli-seconds.\n",(float)(end-start)/CLOCKS_PER_SEC);
     
   printf("\n");
   printf("avg =  %d ",c);
