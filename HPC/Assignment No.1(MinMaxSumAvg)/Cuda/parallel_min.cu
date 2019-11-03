@@ -1,21 +1,13 @@
 #include <stdio.h>
 #include <time.h>
-#define SIZE 100
+#define SIZE 10000
+// MAX_THREADS depends on type of GPU
+#define MAX_THREADS 1024
 
-__global__ void min(const int* __restrict__ input, const int size, int* minOut)
+__global__ void min(const int* __restrict__ input,int* minOut)
 {
-    int localMin = 1000;
-
-    for (int i = threadIdx.x; i < size; i += blockDim.x)
-    {
-        int val = input[i];
-        if (localMin > abs(val))
-        {
-            localMin = abs(val);
-        }
-    }
-    atomicMin(minOut, localMin);
-    __syncthreads();
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  atomicMin(minOut, input[i]);
 }
 
 int main()
@@ -31,21 +23,22 @@ int main()
   {
     a[i] = (rand() % (1000 - 100 + 1)) + 100;
   }
-  for( i = 0 ; i < SIZE ; i++)
-  {
-    printf("%d ",a[i]);
-    if (i%10==0 && i!=0){
-      printf("\n");
-    }
-  }
-  c = a[0];
+  // a[0]= -10; just to check 
   cudaMemcpy(dev_c , &c, sizeof(int),cudaMemcpyHostToDevice);
   cudaMemcpy(dev_a , a, SIZE*sizeof(int),cudaMemcpyHostToDevice);
-  min<<<2,SIZE/2>>>(dev_a,SIZE,dev_c);
-  cudaDeviceSynchronize();
+  // adjusting the number of threads per block
+  dim3 threadsPerBlock(SIZE);
+  dim3 blocksPerGrid(1, 1);
+  if(SIZE > 1024){
+          threadsPerBlock.x = 1024;
+          blocksPerGrid.x = ceil(double(SIZE)/double(threadsPerBlock.x));
+  }
+  clock_t start = clock();
+  min<<<blocksPerGrid,threadsPerBlock>>>(dev_a,dev_c);
   cudaMemcpy(&c, dev_c, sizeof(int),cudaMemcpyDeviceToHost);
-  printf("\n");
-  printf("min =  %d ",c);
+  clock_t end = clock();
+  printf("\nmin =  %d ",c);
+  printf("\nThe time taken to execute is: %f",(float)(end-start)/CLOCKS_PER_SEC);
   cudaFree(dev_a);
   cudaFree(dev_c);
   return 0;
